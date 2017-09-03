@@ -1,18 +1,15 @@
-
-pub use self::transaction::{Transaction, TransactionOptions};
+use {Options, Error, ReadOptions, WriteOptions, DBVector};
+pub use super::transaction::{Transaction, TransactionOptions};
 use db::{Inner, DBIterator, DBRawIterator, IteratorMode};
-use super::{Options, Error, ReadOptions, WriteOptions, DBVector};
-use ffi;
+use utils;
+
+use std::path::Path;
 
 use libc::{c_char, size_t};
-use std::ffi::CString;
-use std::fs;
-use std::path::Path;
+use ffi;
 
 unsafe impl Send for TransactionDB {}
 unsafe impl Sync for TransactionDB {}
-
-pub mod transaction;
 
 pub struct TransactionDB {
     pub inner: *mut ffi::rocksdb_transactiondb_t,
@@ -42,27 +39,9 @@ impl TransactionDB {
         opts: &Options,
         txn_db_opts: &TransactionDBOptions,
         path: P,
-    ) -> Result<TransactionDB, Error> {
+    ) -> Result<Self, Error> {
         let path = path.as_ref();
-        let cpath = match CString::new(path.to_string_lossy().as_bytes()) {
-            Ok(c) => c,
-            Err(_) => {
-                return Err(Error::new(
-                    "Failed to convert path to CString \
-                                       when opening DB."
-                        .to_owned(),
-                ))
-            }
-        };
-
-        if let Err(e) = fs::create_dir_all(&path) {
-            return Err(Error::new(format!(
-                "Failed to create RocksDB \
-                                           directory: `{:?}`.",
-                e
-            )));
-        }
-
+        let cpath = utils::to_cpath(path)?;
         let db: *mut ffi::rocksdb_transactiondb_t = unsafe {
             ffi_try!(ffi::rocksdb_transactiondb_open(
                 opts.inner,
@@ -134,7 +113,7 @@ impl TransactionDB {
         }
     }
 
-    
+
 
     pub fn transaction_begin(
         &self,
@@ -149,7 +128,7 @@ impl TransactionDB {
     }
 
     pub fn destroy<P: AsRef<Path>>(opts: &Options, path: P) -> Result<(), Error> {
-        let cpath = CString::new(path.as_ref().to_string_lossy().as_bytes()).unwrap();
+        let cpath = utils::to_cpath(path.as_ref())?;
         unsafe {
             ffi_try!(ffi::rocksdb_destroy_db(opts.inner, cpath.as_ptr()));
         }
@@ -157,7 +136,7 @@ impl TransactionDB {
     }
 
     pub fn repair<P: AsRef<Path>>(opts: Options, path: P) -> Result<(), Error> {
-        let cpath = CString::new(path.as_ref().to_string_lossy().as_bytes()).unwrap();
+        let cpath = utils::to_cpath(path.as_ref())?;
         unsafe {
             ffi_try!(ffi::rocksdb_repair_db(opts.inner, cpath.as_ptr()));
         }
@@ -222,7 +201,6 @@ impl<'a> Inner for Snapshot<'a> {
 }
 
 impl TransactionDBOptions {
-
     pub fn set_max_num_locks(&mut self, max_num_locks: i64) {
         unsafe {
             ffi::rocksdb_transactiondb_options_set_max_num_locks(self.inner, max_num_locks);
@@ -237,18 +215,21 @@ impl TransactionDBOptions {
 
     pub fn set_transaction_lock_timeout(&mut self, txn_lock_timeout: i64) {
         unsafe {
-            ffi::rocksdb_transactiondb_options_set_transaction_lock_timeout(self.inner,
-                                                                            txn_lock_timeout);
+            ffi::rocksdb_transactiondb_options_set_transaction_lock_timeout(
+                self.inner,
+                txn_lock_timeout,
+            );
         }
     }
 
     pub fn set_default_lock_timeout(&mut self, default_lock_timeout: i64) {
         unsafe {
-            ffi::rocksdb_transactiondb_options_set_default_lock_timeout(self.inner,
-                                                                        default_lock_timeout);
+            ffi::rocksdb_transactiondb_options_set_default_lock_timeout(
+                self.inner,
+                default_lock_timeout,
+            );
         }
     }
-
 }
 
 impl Default for TransactionDBOptions {

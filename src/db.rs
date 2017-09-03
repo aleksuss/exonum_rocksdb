@@ -13,23 +13,22 @@
 // limitations under the License.
 //
 
-
 use {DB, Error, Options, WriteOptions, ColumnFamily};
 use transaction_db::Transaction;
-use ffi;
-use ffi_util::opt_bytes_to_ptr;
+use utils;
 
-use libc::{c_char, c_int, c_uchar, c_void, size_t};
 use std::collections::BTreeMap;
 use std::ffi::CString;
 use std::fmt;
-use std::fs;
 use std::ops::Deref;
 use std::path::Path;
 use std::ptr;
 use std::slice;
 use std::str;
 
+use ffi;
+use ffi_util::opt_bytes_to_ptr;
+use libc::{c_char, c_int, c_uchar, c_void, size_t};
 
 pub fn new_bloom_filter(bits: c_int) -> *mut ffi::rocksdb_filterpolicy_t {
     unsafe { ffi::rocksdb_filterpolicy_create_bloom(bits) }
@@ -124,7 +123,7 @@ pub struct Snapshot<'a> {
 /// ranges and direction.
 ///
 /// This iterator is different to the standard ``DBIterator`` as it aims Into
-/// replicate the underlying iterator API within RocksDB itself. This should
+/// replicate the underlying iterator API within `RocksDB` itself. This should
 /// give access to more performance and flexibility but departs from the
 /// widely recognised Rust idioms.
 ///
@@ -225,10 +224,6 @@ impl DBRawIterator {
         unsafe { DBRawIterator { inner: ffi::rocksdb_create_iterator(db.inner, readopts.inner) } }
     }
 
-    pub fn new_txn(txn: &Transaction, readopts: &ReadOptions) -> DBRawIterator {
-        unsafe { DBRawIterator { inner: ffi::rocksdb_transaction_create_iterator(txn.inner, readopts.inner) } }
-    }
-
     fn new_cf(
         db: &DB,
         cf_handle: ColumnFamily,
@@ -237,6 +232,30 @@ impl DBRawIterator {
         unsafe {
             Ok(DBRawIterator {
                 inner: ffi::rocksdb_create_iterator_cf(db.inner, readopts.inner, cf_handle.inner),
+            })
+        }
+    }
+
+    pub fn new_txn(txn: &Transaction, readopts: &ReadOptions) -> DBRawIterator {
+        unsafe {
+            DBRawIterator {
+                inner: ffi::rocksdb_transaction_create_iterator(txn.inner, readopts.inner),
+            }
+        }
+    }
+
+    pub fn new_txn_cf(
+        txn: &Transaction,
+        cf_handle: ColumnFamily,
+        readopts: &ReadOptions,
+    ) -> Result<DBRawIterator, Error> {
+        unsafe {
+            Ok(DBRawIterator {
+                inner: ffi::rocksdb_transaction_create_iterator_cf(
+                    txn.inner,
+                    readopts.inner,
+                    cf_handle.inner,
+                ),
             })
         }
     }
@@ -434,7 +453,7 @@ impl DBRawIterator {
     /// if the iterator's seek position is ever moved by any of the seek commands or the
     /// ``.next()`` and ``.previous()`` methods as the underlying buffer may be reused
     /// for something else or freed entirely.
-    pub unsafe fn key_inner<'a>(&'a self) -> Option<&'a [u8]> {
+    pub unsafe fn key_inner(&self) -> Option<&[u8]> {
         if self.valid() {
             let mut key_len: size_t = 0;
             let key_len_ptr: *mut size_t = &mut key_len;
@@ -458,7 +477,7 @@ impl DBRawIterator {
     /// if the iterator's seek position is ever moved by any of the seek commands or the
     /// ``.next()`` and ``.previous()`` methods as the underlying buffer may be reused
     /// for something else or freed entirely.
-    pub unsafe fn value_inner<'a>(&'a self) -> Option<&'a [u8]> {
+    pub unsafe fn value_inner(&self) -> Option<&[u8]> {
         if self.valid() {
             let mut val_len: size_t = 0;
             let val_len_ptr: *mut size_t = &mut val_len;
@@ -495,6 +514,21 @@ impl DBIterator {
         rv
     }
 
+    fn new_cf(
+        db: &DB,
+        cf_handle: ColumnFamily,
+        readopts: &ReadOptions,
+        mode: IteratorMode,
+    ) -> Result<DBIterator, Error> {
+        let mut rv = DBIterator {
+            raw: DBRawIterator::new_cf(db, cf_handle, readopts)?,
+            direction: Direction::Forward, // blown away by set_mode()
+            just_seeked: false,
+        };
+        rv.set_mode(mode);
+        Ok(rv)
+    }
+
     pub fn new_txn(txn: &Transaction, readopts: &ReadOptions, mode: IteratorMode) -> DBIterator {
         let mut rv = DBIterator {
             raw: DBRawIterator::new_txn(txn, readopts),
@@ -505,14 +539,14 @@ impl DBIterator {
         rv
     }
 
-    fn new_cf(
-        db: &DB,
+    pub fn new_txn_cf(
+        txn: &Transaction,
         cf_handle: ColumnFamily,
         readopts: &ReadOptions,
         mode: IteratorMode,
     ) -> Result<DBIterator, Error> {
         let mut rv = DBIterator {
-            raw: try!(DBRawIterator::new_cf(db, cf_handle, readopts)),
+            raw: DBRawIterator::new_txn_cf(txn, cf_handle, readopts)?,
             direction: Direction::Forward, // blown away by set_mode()
             just_seeked: false,
         };
@@ -664,28 +698,11 @@ impl DB {
     /// * Panics if the column family doesn't exist.
     pub fn open_cf<P: AsRef<Path>>(opts: &Options, path: P, cfs: &[&str]) -> Result<DB, Error> {
         let path = path.as_ref();
-        let cpath = match CString::new(path.to_string_lossy().as_bytes()) {
-            Ok(c) => c,
-            Err(_) => {
-                return Err(Error::new(
-                    "Failed to convert path to CString \
-                                       when opening DB."
-                        .to_owned(),
-                ))
-            }
-        };
-
-        if let Err(e) = fs::create_dir_all(&path) {
-            return Err(Error::new(format!(
-                "Failed to create RocksDB directory: `{:?}`.",
-                e
-            )));
-        }
-
+        let cpath = utils::to_cpath(path)?;
         let db: *mut ffi::rocksdb_t;
         let mut cf_map = BTreeMap::new();
 
-        if cfs.len() == 0 {
+        if cfs.is_empty() {
             unsafe {
                 db = ffi_try!(ffi::rocksdb_open(opts.inner, cpath.as_ptr() as *const _));
             }
@@ -752,7 +769,7 @@ impl DB {
     }
 
     pub fn destroy<P: AsRef<Path>>(opts: &Options, path: P) -> Result<(), Error> {
-        let cpath = CString::new(path.as_ref().to_string_lossy().as_bytes()).unwrap();
+        let cpath = utils::to_cpath(path.as_ref())?;
         unsafe {
             ffi_try!(ffi::rocksdb_destroy_db(opts.inner, cpath.as_ptr()));
         }
@@ -760,7 +777,7 @@ impl DB {
     }
 
     pub fn repair<P: AsRef<Path>>(opts: Options, path: P) -> Result<(), Error> {
-        let cpath = CString::new(path.as_ref().to_string_lossy().as_bytes()).unwrap();
+        let cpath = utils::to_cpath(path.as_ref())?;
         unsafe {
             ffi_try!(ffi::rocksdb_repair_db(opts.inner, cpath.as_ptr()));
         }
@@ -768,7 +785,7 @@ impl DB {
     }
 
     pub fn path(&self) -> &Path {
-        &self.path.as_path()
+        self.path.as_path()
     }
 
     pub fn write_opt(&self, batch: WriteBatch, writeopts: &WriteOptions) -> Result<(), Error> {
@@ -862,16 +879,7 @@ impl DB {
     }
 
     pub fn create_cf(&mut self, name: &str, opts: &Options) -> Result<ColumnFamily, Error> {
-        let cname = match CString::new(name.as_bytes()) {
-            Ok(c) => c,
-            Err(_) => {
-                return Err(Error::new(
-                    "Failed to convert path to CString \
-                                       when opening rocksdb"
-                        .to_owned(),
-                ))
-            }
-        };
+        let cname= utils::to_cpath(Path::new(name))?;
         let cf = unsafe {
             let cf_handler = ffi_try!(ffi::rocksdb_create_column_family(
                 self.inner,
@@ -886,19 +894,16 @@ impl DB {
     }
 
     pub fn drop_cf(&mut self, name: &str) -> Result<(), Error> {
-        let cf = self.cfs.get(name);
-        if cf.is_none() {
-            return Err(Error::new(
+        if let Some(cf) = self.cfs.get(name) {
+            unsafe {
+                ffi_try!(ffi::rocksdb_drop_column_family(self.inner, cf.inner));
+            }
+            Ok(())
+        } else {
+            Err(Error::new(
                 format!("Invalid column family: {}", name).to_owned(),
-            ));
+            ))
         }
-        unsafe {
-            ffi_try!(ffi::rocksdb_drop_column_family(
-                self.inner,
-                cf.unwrap().inner
-            ));
-        }
-        Ok(())
     }
 
     /// Return the underlying column family handle.
