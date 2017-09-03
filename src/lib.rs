@@ -66,10 +66,10 @@ use std::collections::BTreeMap;
 use std::error;
 use std::fmt;
 use std::path::PathBuf;
+
 pub use transaction::{Transaction, TransactionOptions};
 pub use transaction_db::{TransactionDB, TransactionDBOptions};
-
-
+pub use optimistic_txn_db::{OptimisticTransactionDB, OptimisticTransactionOptions};
 
 /// A `RocksDB` database.
 ///

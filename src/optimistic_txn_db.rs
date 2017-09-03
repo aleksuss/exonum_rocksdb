@@ -19,6 +19,9 @@ use std::ptr;
 use ffi;
 use libc::{c_uchar, c_int};
 
+unsafe impl Send for OptimisticTransactionDB {}
+unsafe impl Sync for OptimisticTransactionDB {}
+
 pub struct OptimisticTransactionDB {
     pub inner: *mut ffi::rocksdb_optimistictransactiondb_t,
     base_db: *mut ffi::rocksdb_t,
