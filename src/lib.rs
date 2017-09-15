@@ -40,6 +40,7 @@
 
 extern crate libc;
 extern crate exonum_librocksdb_sys as ffi;
+#[cfg(test)]
 extern crate tempdir;
 
 #[macro_use]

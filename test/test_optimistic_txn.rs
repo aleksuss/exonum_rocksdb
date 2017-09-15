@@ -93,15 +93,16 @@ fn test_optimistictransactiondb_snapshot() {
     let txn_opts = OptimisticTransactionOptions::default();
 
     let db = OptimisticTransactionDB::open_default(path).unwrap();
-    let txn = db.transaction_begin(&w_opts, &txn_opts);
-    let snapshot = db.snapshot();
+    {
+        let txn = db.transaction_begin(&w_opts, &txn_opts);
+        let snapshot = db.snapshot();
 
-    assert!(txn.put(b"a", b"1").is_ok());
-    assert!(snapshot.get(b"a").unwrap().is_none());
-    assert!(txn.commit().is_ok());
-    assert!(snapshot.get(b"a").unwrap().is_none());
-    assert_eq!(snapshot.iterator(IteratorMode::Start).count(), 0);
-
+        assert!(txn.put(b"a", b"1").is_ok());
+        assert!(snapshot.get(b"a").unwrap().is_none());
+        assert!(txn.commit().is_ok());
+        assert!(snapshot.get(b"a").unwrap().is_none());
+        assert_eq!(snapshot.iterator(IteratorMode::Start).count(), 0);
+    }
     let snapshot = db.snapshot();
     assert!(snapshot.get(b"a").unwrap().is_some());
     assert_eq!(snapshot.iterator(IteratorMode::Start).count(), 1);

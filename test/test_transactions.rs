@@ -80,3 +80,20 @@ fn test_transaction_snapshot() {
     assert!(iter.valid());
     assert_eq!(iter.count(), 2);
 }
+
+#[test]
+fn test_transaction_savepoint() {
+    let temp_dir = TempDir::new("transaction_db").unwrap();
+    let path = temp_dir.path();
+    let db = TransactionDB::open_default(path).unwrap();
+    let w_opts = WriteOptions::default();
+    let txn_opts = TransactionOptions::default();
+    let txn = db.transaction_begin(&w_opts, &txn_opts);
+    assert!(txn.put(b"key1", b"value1").is_ok());
+    txn.savepoint();
+    assert!(txn.get(b"key1").unwrap().is_some());
+    assert!(txn.put(b"key2", b"value2").is_ok());
+    assert!(txn.get(b"key2").unwrap().is_some());
+    assert!(txn.rollback_to_savepoint().is_ok());
+    assert!(txn.get(b"key2").unwrap().is_none());
+}

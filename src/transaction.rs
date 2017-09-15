@@ -38,15 +38,12 @@ impl Transaction {
         options: &WriteOptions,
         txn_options: &OptimisticTransactionOptions,
     ) -> Self {
-        unsafe {
-            Transaction {
-                inner: ffi::rocksdb_optimistictransaction_begin(
-                    db.inner,
-                    options.inner,
-                    txn_options.inner,
-                    null_mut(),
-                ),
-            }
+        Transaction {
+            inner: unsafe { ffi::rocksdb_optimistictransaction_begin(
+                db.inner,
+                options.inner,
+                txn_options.inner,
+                null_mut()) },
         }
     }
 
@@ -184,8 +181,21 @@ impl Transaction {
     pub fn rollback(&self) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_transaction_rollback(self.inner));
-            Ok(())
         }
+        Ok(())
+    }
+
+    pub fn savepoint(&self) {
+        unsafe {
+            ffi::rocksdb_transaction_set_savepoint(self.inner);
+        }
+    }
+
+    pub fn rollback_to_savepoint(&self) -> Result<(), Error> {
+        unsafe {
+            ffi_try!(ffi::rocksdb_transaction_rollback_to_savepoint(self.inner));
+        }
+        Ok(())
     }
 
     pub fn iterator(&self) -> DBIterator {

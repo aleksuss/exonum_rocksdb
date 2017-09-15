@@ -17,11 +17,12 @@ use std::path::Path;
 use std::ptr;
 
 use ffi;
-use libc::{c_uchar, c_int};
+use libc::{c_uchar, c_char, size_t, c_int, c_void};
 
 unsafe impl Send for OptimisticTransactionDB {}
 unsafe impl Sync for OptimisticTransactionDB {}
 
+#[derive(Clone)]
 pub struct OptimisticTransactionDB {
     pub inner: *mut ffi::rocksdb_optimistictransactiondb_t,
     base_db: *mut ffi::rocksdb_t,
@@ -53,7 +54,7 @@ impl OptimisticTransactionDB {
 
         Ok(OptimisticTransactionDB {
             inner: db,
-            base_db: base_db,
+            base_db,
             cfs: BTreeMap::new(),
         })
     }
@@ -130,7 +131,7 @@ impl OptimisticTransactionDB {
 
         Ok(OptimisticTransactionDB {
             inner: db,
-            base_db: base_db,
+            base_db,
             cfs: cf_map,
         })
     }
@@ -179,6 +180,46 @@ impl OptimisticTransactionDB {
         }
     }
 
+    pub fn merge_opt(
+        &self,
+        key: &[u8],
+        value: &[u8],
+        writeopts: &WriteOptions,
+    ) -> Result<(), Error> {
+        unsafe {
+            ffi_try!(ffi::rocksdb_merge(
+                self.base_db,
+                writeopts.inner,
+                key.as_ptr() as *const c_char,
+                key.len() as size_t,
+                value.as_ptr() as *const c_char,
+                value.len() as size_t
+            ));
+            Ok(())
+        }
+    }
+
+    pub fn merge_cf_opt(
+        &self,
+        cf: ColumnFamily,
+        key: &[u8],
+        value: &[u8],
+        writeopts: &WriteOptions,
+    ) -> Result<(), Error> {
+        unsafe {
+            ffi_try!(ffi::rocksdb_merge_cf(
+                self.base_db,
+                writeopts.inner,
+                cf.inner,
+                key.as_ptr() as *const c_char,
+                key.len() as size_t,
+                value.as_ptr() as *const c_char,
+                value.len() as size_t
+            ));
+            Ok(())
+        }
+    }
+
     pub fn destroy<P: AsRef<Path>>(opts: &Options, path: P) -> Result<(), Error> {
         let cpath = utils::to_cpath(path.as_ref())?;
         unsafe {
@@ -197,28 +238,28 @@ impl Drop for OptimisticTransactionDB {
     }
 }
 
-pub struct Snapshot<'a> {
-    db: &'a OptimisticTransactionDB,
-    inner: *const ffi::rocksdb_snapshot_t,
+pub struct Snapshot {
+    inner: *mut ffi::rocksdb_snapshot_t,
+    transaction: Transaction,
 }
 
-impl<'a> Snapshot<'a> {
+impl Snapshot {
     pub fn new(db: &OptimisticTransactionDB) -> Snapshot {
-        let snapshot = unsafe { ffi::rocksdb_create_snapshot(db.base_db) };
+        let w_opts = WriteOptions::default();
+        let mut txn_opts = OptimisticTransactionOptions::default();
+        txn_opts.set_snapshot(true);
+        let transaction = db.transaction_begin(&w_opts, &txn_opts);
+        let snapshot = unsafe { ffi::rocksdb_transaction_get_snapshot(transaction.inner) };
         Snapshot {
-            db: db,
+            transaction,
             inner: snapshot,
         }
     }
 
     pub fn iterator(&self, mode: IteratorMode) -> DBIterator {
         let mut r_opts = ReadOptions::default();
-        let w_opts = WriteOptions::default();
-        let mut txn_opts = OptimisticTransactionOptions::default();
-        txn_opts.set_snapshot(true);
         r_opts.set_snapshot(self);
-        let txn = self.db.transaction_begin(&w_opts, &txn_opts);
-        DBIterator::new_txn(&txn, &r_opts, mode)
+        DBIterator::new_txn(&self.transaction, &r_opts, mode)
     }
 
     pub fn iterator_cf(
@@ -227,64 +268,44 @@ impl<'a> Snapshot<'a> {
         mode: IteratorMode,
     ) -> Result<DBIterator, Error> {
         let mut r_opts = ReadOptions::default();
-        let w_opts = WriteOptions::default();
-        let mut txn_opts = OptimisticTransactionOptions::default();
-        txn_opts.set_snapshot(true);
         r_opts.set_snapshot(self);
-        let txn = self.db.transaction_begin(&w_opts, &txn_opts);
-        DBIterator::new_txn_cf(&txn, cf_handle, &r_opts, mode)
+        DBIterator::new_txn_cf(&self.transaction, cf_handle, &r_opts, mode)
     }
 
     pub fn raw_iterator(&self) -> DBRawIterator {
         let mut r_opts = ReadOptions::default();
-        let w_opts = WriteOptions::default();
-        let mut txn_opts = OptimisticTransactionOptions::default();
-        txn_opts.set_snapshot(true);
         r_opts.set_snapshot(self);
-        let txn = self.db.transaction_begin(&w_opts, &txn_opts);
-        DBRawIterator::new_txn(&txn, &r_opts)
+        DBRawIterator::new_txn(&self.transaction, &r_opts)
     }
 
     pub fn raw_iterator_cf(&self, cf_handle: ColumnFamily) -> Result<DBRawIterator, Error> {
         let mut r_opts = ReadOptions::default();
-        let w_opts = WriteOptions::default();
-        let mut txn_opts = OptimisticTransactionOptions::default();
-        txn_opts.set_snapshot(true);
         r_opts.set_snapshot(self);
-        let txn = self.db.transaction_begin(&w_opts, &txn_opts);
-        DBRawIterator::new_txn_cf(&txn, cf_handle, &r_opts)
+        DBRawIterator::new_txn_cf(&self.transaction, cf_handle, &r_opts)
     }
 
     pub fn get(&self, key: &[u8]) -> Result<Option<DBVector>, Error> {
         let mut r_opts = ReadOptions::default();
-        let w_opts = WriteOptions::default();
-        let mut txn_opts = OptimisticTransactionOptions::default();
-        txn_opts.set_snapshot(true);
         r_opts.set_snapshot(self);
-        let txn = self.db.transaction_begin(&w_opts, &txn_opts);
-        txn.get_opt(key, &r_opts)
+        self.transaction.get_opt(key, &r_opts)
     }
 
     pub fn get_cf(&self, cf: ColumnFamily, key: &[u8]) -> Result<Option<DBVector>, Error> {
         let mut r_opts = ReadOptions::default();
-        let w_opts = WriteOptions::default();
-        let mut txn_opts = OptimisticTransactionOptions::default();
-        txn_opts.set_snapshot(true);
         r_opts.set_snapshot(self);
-        let txn = self.db.transaction_begin(&w_opts, &txn_opts);
-        txn.get_cf_opt(key, cf, &r_opts)
+        self.transaction.get_cf_opt(key, cf, &r_opts)
     }
 }
 
-impl<'a> Drop for Snapshot<'a> {
+impl Drop for Snapshot {
     fn drop(&mut self) {
         unsafe {
-            ffi::rocksdb_release_snapshot(self.db.base_db, self.inner);
+            ffi::rocksdb_free(self.inner as *mut c_void);
         }
     }
 }
 
-impl<'a> Inner for Snapshot<'a> {
+impl Inner for Snapshot {
     fn get_inner(&self) -> *const ffi::rocksdb_snapshot_t {
         self.inner
     }

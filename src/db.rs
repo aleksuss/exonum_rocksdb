@@ -89,6 +89,7 @@ pub enum DBRecoveryMode {
 /// }
 /// # }
 /// ```
+#[derive(Clone, Debug)]
 pub struct WriteBatch {
     inner: *mut ffi::rocksdb_writebatch_t,
 }
@@ -616,7 +617,7 @@ impl<'a> Snapshot<'a> {
     pub fn new(db: &DB) -> Snapshot {
         let snapshot = unsafe { ffi::rocksdb_create_snapshot(db.inner) };
         Snapshot {
-            db: db,
+            db,
             inner: snapshot,
         }
     }

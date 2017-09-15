@@ -156,7 +156,7 @@ impl<'a> Snapshot<'a> {
     pub fn new(db: &TransactionDB) -> Snapshot {
         let snapshot = unsafe { ffi::rocksdb_transactiondb_create_snapshot(db.inner) };
         Snapshot {
-            db: db,
+            db,
             inner: snapshot,
         }
     }

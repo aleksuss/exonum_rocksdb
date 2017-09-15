@@ -1064,6 +1064,9 @@ extern "C" {
                                                   column_family: *mut rocksdb_column_family_handle_t)
                                                   -> *mut rocksdb_iterator_t;
 
+    pub fn rocksdb_transaction_get_snapshot(txn: *mut rocksdb_transaction_t)
+                                            -> *mut rocksdb_snapshot_t;
+
     pub fn rocksdb_transaction_put(txn: *mut rocksdb_transaction_t,
                                    key: *const c_char,
                                    keylen: size_t,
@@ -1108,6 +1111,11 @@ extern "C" {
     pub fn rocksdb_transaction_commit(txn: *mut rocksdb_transaction_t, errptr: *mut *mut c_char);
 
     pub fn rocksdb_transaction_rollback(txn: *mut rocksdb_transaction_t, errptr: *mut *mut c_char);
+
+    pub fn rocksdb_transaction_set_savepoint(txn: *mut rocksdb_transaction_t);
+
+    pub fn rocksdb_transaction_rollback_to_savepoint(txn: *mut rocksdb_transaction_t,
+                                                     errptr: *mut *mut c_char);
 
     pub fn rocksdb_transaction_destroy(txn: *mut rocksdb_transaction_t);
 
