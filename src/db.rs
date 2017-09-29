@@ -79,13 +79,13 @@ pub enum DBRecoveryMode {
 /// use tempdir::TempDir;
 /// # fn main() {
 /// let temp_dir = TempDir::new("storage1").unwrap();
-/// let mut db = DB::open_default(temp_dir.path()).unwrap();
+/// let db = DB::open_default(temp_dir.path()).unwrap();
 /// {
 ///     let mut batch = WriteBatch::default();
-///     batch.put(b"my key", b"my value");
-///     batch.put(b"key2", b"value2");
-///     batch.put(b"key3", b"value3");
-///     db.write(batch); // Atomically commits the batch
+///     let _ = batch.put(b"my key", b"my value");
+///     let _ = batch.put(b"key2", b"value2");
+///     let _ = batch.put(b"key3", b"value3");
+///     let _ = db.write(batch); // Atomically commits the batch
 /// }
 /// # }
 /// ```
@@ -109,9 +109,9 @@ pub struct ReadOptions {
 ///
 /// # fn main() {
 /// let temp_dir = TempDir::new("storage1").unwrap();
-/// let mut db = DB::open_default(temp_dir.path()).unwrap();
+/// let db = DB::open_default(temp_dir.path()).unwrap();
 /// let snapshot = db.snapshot(); // Creates a longer-term snapshot of the DB, but closed when goes out of scope
-/// let mut iter = snapshot.iterator(IteratorMode::Start); // Make as many iterators as you'd like from one snapshot
+/// let _iter = snapshot.iterator(IteratorMode::Start); // Make as many iterators as you'd like from one snapshot
 /// # }
 /// ```
 ///
@@ -137,7 +137,7 @@ pub struct Snapshot<'a> {
 ///
 /// # fn main() {
 /// let temp_dir = TempDir::new("storage4").unwrap();
-/// let mut db = DB::open_default(temp_dir.path()).unwrap();
+/// let db = DB::open_default(temp_dir.path()).unwrap();
 /// let mut iter = db.raw_iterator();
 ///
 /// // Forwards iteration
@@ -179,7 +179,7 @@ pub struct DBRawIterator {
 ///
 /// # fn main() {
 /// let temp_dir = TempDir::new("storage2").unwrap();
-/// let mut db = DB::open_default(temp_dir.path()).unwrap();
+/// let db = DB::open_default(temp_dir.path()).unwrap();
 /// let mut iter = db.iterator(IteratorMode::Start); // Always iterates forward
 /// for (key, value) in iter {
 ///     println!("Saw {:?} {:?}", key, value);
@@ -279,7 +279,7 @@ impl DBRawIterator {
     ///
     /// # fn main() {
     /// let temp_dir = TempDir::new("storage5").unwrap();
-    /// let mut db = DB::open_default(temp_dir.path()).unwrap();
+    /// let db = DB::open_default(temp_dir.path()).unwrap();
     /// let mut iter = db.raw_iterator();
     ///
     /// // Iterate all keys from the start in lexicographic order
@@ -322,7 +322,7 @@ impl DBRawIterator {
     ///
     /// # fn main() {
     /// let temp_dir = TempDir::new("storage6").unwrap();
-    /// let mut db = DB::open_default(temp_dir.path()).unwrap();
+    /// let db = DB::open_default(temp_dir.path()).unwrap();
     /// let mut iter = db.raw_iterator();
     ///
     /// // Iterate all keys from the end in reverse lexicographic order
@@ -368,7 +368,7 @@ impl DBRawIterator {
     ///
     /// # fn main() {
     /// let temp_dir = TempDir::new("storage7").unwrap();
-    /// let mut db = DB::open_default(temp_dir.path()).unwrap();
+    /// let db = DB::open_default(temp_dir.path()).unwrap();
     /// let mut iter = db.raw_iterator();
     ///
     /// // Read the first key that starts with 'a'
@@ -412,7 +412,7 @@ impl DBRawIterator {
     ///
     /// # fn main() {
     /// let temp_dir = TempDir::new("storage8").unwrap();
-    /// let mut db = DB::open_default(temp_dir.path()).unwrap();
+    /// let db = DB::open_default(temp_dir.path()).unwrap();
     /// let mut iter = db.raw_iterator();
     ///
     /// // Read the last key that starts with 'a'

@@ -133,10 +133,8 @@ fn compaction_filter_test() {
         assert_eq!(&*db.get(b"k1").unwrap().unwrap(), b"a");
         assert!(db.get(b"_k").unwrap().is_none());
         assert_eq!(&*db.get(b"%k").unwrap().unwrap(), b"secret");
-        match DB::destroy(&opts, temp_dir.path()) {
-            Ok(_) => {}
-            Err(e) => println!("error destroing db {}", e),
-        }
     }
-
+    if let Err(e) = DB::destroy(&opts, temp_dir.path()) {
+        println!("error destroing db {}", e);
+    }
 }

@@ -133,7 +133,7 @@ pub struct BlockBasedOptions {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```norun
 /// use exonum_rocksdb::{Options, DB};
 /// use exonum_rocksdb::DBCompactionStyle;
 ///
@@ -182,15 +182,15 @@ pub struct Options {
 /// let db = DB::open_default(temp_dir.path()).unwrap();
 ///
 /// let mut batch = WriteBatch::default();
-/// batch.put(b"my key", b"my value");
-/// batch.put(b"key2", b"value2");
-/// batch.put(b"key3", b"value3");
+/// let _ = batch.put(b"my key", b"my value");
+/// let _ = batch.put(b"key2", b"value2");
+/// let _ = batch.put(b"key3", b"value3");
 ///
 /// let mut write_options = WriteOptions::default();
 /// write_options.set_sync(false);
 /// write_options.disable_wal(true);
 ///
-/// db.write_opt(batch, &write_options);
+/// let _ = db.write_opt(batch, &write_options);
 /// # }
 /// ```
 pub struct WriteOptions {

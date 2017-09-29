@@ -7,6 +7,7 @@ use optimistic_txn_db::{OptimisticTransactionDB, OptimisticTransactionOptions};
 use std::ptr::null_mut;
 use transaction_db::TransactionDB;
 
+#[derive(Clone)]
 pub struct Transaction {
     pub inner: *mut ffi::rocksdb_transaction_t,
 }

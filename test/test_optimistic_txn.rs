@@ -110,7 +110,7 @@ fn test_optimistictransactiondb_snapshot() {
 
 #[test]
 fn test_optimistictransactiondb_snapshot_cf() {
-    let temp_dir = TempDir::new("transaction_db_4").unwrap();
+    let temp_dir = TempDir::new("transaction_db_5").unwrap();
     let path = temp_dir.path();
     let w_opts = WriteOptions::default();
     let txn_opts = OptimisticTransactionOptions::default();
@@ -124,9 +124,21 @@ fn test_optimistictransactiondb_snapshot_cf() {
     assert!(snapshot.get_cf(cf1, b"a").unwrap().is_none());
     assert!(txn.commit().is_ok());
     assert!(snapshot.get_cf(cf1, b"a").unwrap().is_none());
-    assert_eq!(snapshot.iterator_cf(cf1, IteratorMode::Start).unwrap().count(), 0);
+    assert_eq!(
+        snapshot
+            .iterator_cf(cf1, IteratorMode::Start)
+            .unwrap()
+            .count(),
+        0
+    );
 
     let snapshot = db.snapshot();
     assert!(snapshot.get_cf(cf1, b"a").unwrap().is_some());
-    assert_eq!(snapshot.iterator_cf(cf1, IteratorMode::Start).unwrap().count(), 1);
+    assert_eq!(
+        snapshot
+            .iterator_cf(cf1, IteratorMode::Start)
+            .unwrap()
+            .count(),
+        1
+    );
 }

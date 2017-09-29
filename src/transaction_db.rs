@@ -1,12 +1,13 @@
-use {Options, Error, ReadOptions, WriteOptions, DBVector};
-pub use super::transaction::{Transaction, TransactionOptions};
-use db::{Inner, DBIterator, DBRawIterator, IteratorMode};
-use utils;
 
-use std::path::Path;
+pub use super::transaction::{Transaction, TransactionOptions};
+use {Options, Error, ReadOptions, WriteOptions, DBVector};
+use db::{Inner, DBIterator, DBRawIterator, IteratorMode};
+use ffi;
 
 use libc::{c_char, size_t};
-use ffi;
+
+use std::path::Path;
+use utils;
 
 unsafe impl Send for TransactionDB {}
 unsafe impl Sync for TransactionDB {}
