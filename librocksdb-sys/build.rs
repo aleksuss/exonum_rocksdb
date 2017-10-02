@@ -205,7 +205,7 @@ fn main() {
 
     if !try_to_find_lib("librocksdb") {
         if read_dir("rocksdb").is_err() {
-            get_sources("https://github.com/facebook/rocksdb.git", "593d3de37171d99a761ce2ab34ffa12654acd055");
+            get_sources("https://github.com/facebook/rocksdb.git", "382277d0fe79ece86b799e3925919cf44c3afb4c");
         }
         build_rocksdb();
     }
