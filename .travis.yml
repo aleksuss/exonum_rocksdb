@@ -17,7 +17,7 @@ rust:
   - stable
 matrix:
   include:
-    - rust: nightly-2017-09-27
+    - rust: nightly-2017-10-03
       env: FEATURE=clippy
 
 cache:
