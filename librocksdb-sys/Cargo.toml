@@ -23,6 +23,6 @@ tempdir = "0.3.5"
 const-cstr = "0.2"
 
 [build-dependencies]
-gcc = { version = "0.3", features = ["parallel"] }
+gcc = { version = "0.3.54", features = ["parallel"] }
 make-cmd = "0.1"
 pkg-config = "0.3"

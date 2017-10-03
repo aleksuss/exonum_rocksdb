@@ -1,10 +1,24 @@
+// Copyright 2017 The Exonum Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 extern crate gcc;
 extern crate pkg_config;
 
 use pkg_config::probe_library;
-use std::process::Command;
-use std::fs::read_dir;
 use std::env::var;
+use std::fs::read_dir;
+use std::process::Command;
 
 fn link(name: &str, bundled: bool) {
     let target = var("TARGET").unwrap();
@@ -22,7 +36,7 @@ fn build_rocksdb() {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=rocksdb/");
 
-    let mut config = gcc::Config::new();
+    let mut config = gcc::Build::new();
     config.include("rocksdb/include/");
     config.include("rocksdb/");
     config.include("rocksdb/third-party/gtest-1.7.0/fused-src/");
@@ -35,7 +49,7 @@ fn build_rocksdb() {
     config.define("SNAPPY", Some("1"));
 
     let mut lib_sources = include_str!("rocksdb_lib_sources.txt")
-        .split(" ")
+        .split("\n")
         .collect::<Vec<&'static str>>();
 
     // We have a pregenerated a version of build_version.cc in the local directory
@@ -74,7 +88,7 @@ fn build_rocksdb() {
             .filter(|file| match *file {
                 "port/port_posix.cc" |
                 "util/env_posix.cc" |
-                "util/io_posix.cc"  => false,
+                "util/io_posix.cc" => false,
                 _ => true,
             })
             .collect::<Vec<&'static str>>();
@@ -99,12 +113,12 @@ fn build_rocksdb() {
     }
 
     config.file("build_version.cc");
-    config.cpp(true);
+    config.warnings(false);
     config.compile("librocksdb.a");
 }
 
 fn build_snappy() {
-    let mut config = gcc::Config::new();
+    let mut config = gcc::Build::new();
     config.include("snappy/");
     config.include(".");
 
@@ -123,6 +137,7 @@ fn build_snappy() {
     config.file("snappy/snappy-c.cc");
 
     config.cpp(true);
+    config.warnings(false);
     config.compile("libsnappy.a");
 }
 
@@ -132,7 +147,7 @@ fn try_to_find_lib(library: &str) -> bool {
     let lib_name = match library {
         "librocksdb" => "ROCKSDB",
         "libsnappy" => "SNAPPY",
-        _ => "UNKNOWN"
+        _ => "UNKNOWN",
     };
 
     if let Ok(lib_dir) = env::var(format!("{}_LIB_DIR", lib_name).as_str()) {
@@ -141,11 +156,15 @@ fn try_to_find_lib(library: &str) -> bool {
             Some(_) => "static",
             None => "dylib",
         };
-        println!("cargo:rustc-link-lib={0}={1}", mode, lib_name.to_lowercase());
+        println!(
+            "cargo:rustc-link-lib={0}={1}",
+            mode,
+            lib_name.to_lowercase()
+        );
         return true;
-    }   
+    }
 
-   if probe_library(library).is_ok() {
+    if probe_library(library).is_ok() {
         true
     } else {
         false
@@ -154,17 +173,16 @@ fn try_to_find_lib(library: &str) -> bool {
 
 fn get_sources(git_path: &str, rev: &str) {
     let mut command = Command::new("git");
-    let mut command_result = command
-                        .arg("clone")
-                        .arg(git_path)
-                        .output()
-                        .unwrap_or_else(|error| {
-                            panic!("Failed to run git command: {}", error);
-                        });
-    if !command_result.status.success() {   
-        panic!("{:?}\n{}\n{}\n", 
-            command, 
-            String::from_utf8_lossy(&command_result.stdout), 
+    let mut command_result = command.arg("clone").arg(git_path).output().unwrap_or_else(
+        |error| {
+            panic!("Failed to run git command: {}", error);
+        },
+    );
+    if !command_result.status.success() {
+        panic!(
+            "{:?}\n{}\n{}\n",
+            command,
+            String::from_utf8_lossy(&command_result.stdout),
             String::from_utf8_lossy(&command_result.stderr)
         );
     }
@@ -177,35 +195,40 @@ fn get_sources(git_path: &str, rev: &str) {
         command.current_dir("rocksdb");
     }
 
-    command_result = command
-                        .arg("checkout")
-                        .arg(rev)
-                        .output()
-                        .unwrap_or_else(|error| {
-                            panic!("Failed to run git command: {}", error);
-                        });                              
+    command_result = command.arg("checkout").arg(rev).output().unwrap_or_else(
+        |error| {
+            panic!("Failed to run git command: {}", error);
+        },
+    );
 
-    if !command_result.status.success() {   
-        panic!("{:?}\n{}\n{}\n", 
-            command, 
-            String::from_utf8_lossy(&command_result.stdout), 
+    if !command_result.status.success() {
+        panic!(
+            "{:?}\n{}\n{}\n",
+            command,
+            String::from_utf8_lossy(&command_result.stdout),
             String::from_utf8_lossy(&command_result.stderr)
         );
-    }   
+    }
 }
 
 fn main() {
 
     if !try_to_find_lib("libsnappy") {
         if read_dir("snappy").is_err() {
-            get_sources("https://github.com/google/snappy.git", "513df5fb5a2d51146f409141f9eb8736935cc486");
+            get_sources(
+                "https://github.com/google/snappy.git",
+                "513df5fb5a2d51146f409141f9eb8736935cc486",
+            );
         }
         build_snappy();
     }
 
     if !try_to_find_lib("librocksdb") {
         if read_dir("rocksdb").is_err() {
-            get_sources("https://github.com/facebook/rocksdb.git", "382277d0fe79ece86b799e3925919cf44c3afb4c");
+            get_sources(
+                "https://github.com/facebook/rocksdb.git",
+                "382277d0fe79ece86b799e3925919cf44c3afb4c",
+            );
         }
         build_rocksdb();
     }

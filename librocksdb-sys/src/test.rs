@@ -13,12 +13,12 @@
 // limitations under the License.
 //
 
+
+use super::*;
 use libc::*;
 use std::ffi::{CStr, CString};
 use std::ptr;
 use std::str;
-
-use super::*;
 
 pub fn error_message(ptr: *const i8) -> String {
     let c_str = unsafe { CStr::from_ptr(ptr as *const _) };
@@ -55,13 +55,15 @@ fn internal() {
 
         let key = b"name\x00";
         let val = b"spacejam\x00";
-        rocksdb_put(db,
-                    writeopts.clone(),
-                    key.as_ptr() as *const c_char,
-                    4,
-                    val.as_ptr() as *const c_char,
-                    8,
-                    err_ptr);
+        rocksdb_put(
+            db,
+            writeopts.clone(),
+            key.as_ptr() as *const c_char,
+            4,
+            val.as_ptr() as *const c_char,
+            8,
+            err_ptr,
+        );
         rocksdb_writeoptions_destroy(writeopts);
         assert!(err.is_null());
 
@@ -70,12 +72,14 @@ fn internal() {
 
         let mut val_len: size_t = 0;
         let val_len_ptr = &mut val_len as *mut size_t;
-        rocksdb_get(db,
-                    readopts.clone(),
-                    key.as_ptr() as *const c_char,
-                    4,
-                    val_len_ptr,
-                    err_ptr);
+        rocksdb_get(
+            db,
+            readopts.clone(),
+            key.as_ptr() as *const c_char,
+            4,
+            val_len_ptr,
+            err_ptr,
+        );
         rocksdb_readoptions_destroy(readopts);
         assert!(err.is_null());
         rocksdb_close(db);
