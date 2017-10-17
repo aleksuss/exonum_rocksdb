@@ -24,6 +24,7 @@ use transaction_db::TransactionDB;
 #[derive(Clone)]
 pub struct Transaction {
     pub inner: *mut ffi::rocksdb_transaction_t,
+    read_opts: ReadOptions,
 }
 
 pub struct TransactionOptions {
@@ -44,6 +45,7 @@ impl Transaction {
                     txn_options.inner,
                     null_mut(),
                 ),
+                read_opts: ReadOptions::default(),
             }
         }
     }
@@ -59,6 +61,7 @@ impl Transaction {
                 options.inner,
                 txn_options.inner,
                 null_mut()) },
+            read_opts: ReadOptions::default(),
         }
     }
 
@@ -77,21 +80,21 @@ impl Transaction {
 
     pub fn put_cf(&self, cf: ColumnFamily, key: &[u8], value: &[u8]) -> Result<(), Error> {
         unsafe {
-            ffi_try!(ffi::rocksdb_transaction_put_cf(
+            ffi::rocksdb_transaction_put_cf(
                 self.inner,
                 cf.inner,
                 key.as_ptr() as *const c_char,
                 key.len() as size_t,
                 value.as_ptr() as *const c_char,
-                value.len() as size_t
-            ));
+                value.len() as size_t,
+                null_mut(),
+            );
             Ok(())
         }
     }
 
     pub fn get(&self, key: &[u8]) -> Result<Option<DBVector>, Error> {
-        let opts = ReadOptions::default();
-        self.get_opt(key, &opts)
+        self.get_opt(key, &self.read_opts)
     }
 
     pub fn get_opt(&self, key: &[u8], read_opts: &ReadOptions) -> Result<Option<DBVector>, Error> {
@@ -124,8 +127,7 @@ impl Transaction {
     }
 
     pub fn get_cf(&self, cf: ColumnFamily, key: &[u8]) -> Result<Option<DBVector>, Error> {
-        let opts = ReadOptions::default();
-        self.get_cf_opt(key, cf, &opts)
+        self.get_cf_opt(key, cf, &self.read_opts)
     }
 
     pub fn get_cf_opt(
@@ -214,8 +216,7 @@ impl Transaction {
     }
 
     pub fn iterator(&self) -> DBIterator {
-        let opts = ReadOptions::default();
-        self.iterator_opt(&opts)
+        self.iterator_opt(&self.read_opts)
     }
 
     pub fn iterator_opt(&self, opts: &ReadOptions) -> DBIterator {
@@ -223,8 +224,7 @@ impl Transaction {
     }
 
     pub fn iterator_cf(&self, cf_handler: ColumnFamily) -> Result<DBIterator, Error> {
-        let opts = ReadOptions::default();
-        DBIterator::new_txn_cf(self, cf_handler, &opts, IteratorMode::Start)
+        DBIterator::new_txn_cf(self, cf_handler, &self.read_opts, IteratorMode::Start)
     }
 
     pub fn iterator_opt_cf(

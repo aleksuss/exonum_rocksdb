@@ -63,7 +63,8 @@ pub use db::{DBCompactionStyle, DBCompressionType, DBIterator, DBRawIterator, DB
              new_bloom_filter};
 pub use merge_operator::MergeOperands;
 
-use std::collections::BTreeMap;
+use std::sync::{Arc, RwLock};
+use std::collections::HashMap;
 use std::error;
 use std::fmt;
 use std::path::PathBuf;
@@ -77,7 +78,7 @@ pub use optimistic_txn_db::{OptimisticTransactionDB, OptimisticTransactionOption
 /// See crate level documentation for a simple usage example.
 pub struct DB {
     inner: *mut ffi::rocksdb_t,
-    cfs: BTreeMap<String, ColumnFamily>,
+    cfs: Arc<RwLock<HashMap<String, ColumnFamily>>>,
     path: PathBuf,
 }
 
@@ -203,3 +204,6 @@ pub struct WriteOptions {
 pub struct ColumnFamily {
     inner: *mut ffi::rocksdb_column_family_handle_t,
 }
+
+unsafe impl Send for ColumnFamily {}
+unsafe impl Sync for ColumnFamily {}

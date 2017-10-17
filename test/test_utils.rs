@@ -24,7 +24,7 @@ fn test_get_cf_names() {
 
     {
         opts.create_if_missing(true);
-        let mut db = DB::open(&opts, path).unwrap();
+        let db = DB::open(&opts, path).unwrap();
         let cf1 = db.create_cf("cf1", &opts).unwrap();
         let cf2 = db.create_cf("cf2", &opts).unwrap();
         let _ = db.put_cf(cf1, b"a", b"a");

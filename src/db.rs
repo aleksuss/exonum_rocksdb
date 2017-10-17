@@ -17,7 +17,8 @@ use {DB, Error, Options, WriteOptions, ColumnFamily};
 use transaction_db::Transaction;
 use utils;
 
-use std::collections::BTreeMap;
+use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
 use std::ffi::CString;
 use std::fmt;
 use std::ops::Deref;
@@ -94,6 +95,7 @@ pub struct WriteBatch {
     inner: *mut ffi::rocksdb_writebatch_t,
 }
 
+#[derive(Clone)]
 pub struct ReadOptions {
     pub inner: *mut ffi::rocksdb_readoptions_t,
 }
@@ -701,7 +703,7 @@ impl DB {
         let path = path.as_ref();
         let cpath = utils::to_cpath(path)?;
         let db: *mut ffi::rocksdb_t;
-        let mut cf_map = BTreeMap::new();
+        let cf_map = Arc::new(RwLock::new(HashMap::new()));
 
         if cfs.is_empty() {
             unsafe {
@@ -754,7 +756,7 @@ impl DB {
             }
 
             for (n, h) in cfs_v.iter().zip(cfhandles) {
-                cf_map.insert(n.to_string(), ColumnFamily { inner: h });
+                cf_map.write().unwrap().insert(n.to_string(), ColumnFamily { inner: h });
             }
         }
 
@@ -879,7 +881,7 @@ impl DB {
         self.get_cf_opt(cf, key, &ReadOptions::default())
     }
 
-    pub fn create_cf(&mut self, name: &str, opts: &Options) -> Result<ColumnFamily, Error> {
+    pub fn create_cf(&self, name: &str, opts: &Options) -> Result<ColumnFamily, Error> {
         let cname= utils::to_cpath(Path::new(name))?;
         let cf = unsafe {
             let cf_handler = ffi_try!(ffi::rocksdb_create_column_family(
@@ -888,14 +890,14 @@ impl DB {
                 cname.as_ptr()
             ));
             let cf = ColumnFamily { inner: cf_handler };
-            self.cfs.insert(name.to_string(), cf);
+            self.cfs.write().unwrap().insert(name.to_string(), cf);
             cf
         };
         Ok(cf)
     }
 
     pub fn drop_cf(&mut self, name: &str) -> Result<(), Error> {
-        if let Some(cf) = self.cfs.get(name) {
+        if let Some(cf) = self.cfs.read().unwrap().get(name) {
             unsafe {
                 ffi_try!(ffi::rocksdb_drop_column_family(self.inner, cf.inner));
             }
@@ -909,7 +911,7 @@ impl DB {
 
     /// Return the underlying column family handle.
     pub fn cf_handle(&self, name: &str) -> Option<ColumnFamily> {
-        self.cfs.get(name).cloned()
+        self.cfs.read().unwrap().get(name).cloned()
     }
 
     pub fn iterator(&self, mode: IteratorMode) -> DBIterator {
@@ -1201,7 +1203,7 @@ impl Drop for WriteBatch {
 impl Drop for DB {
     fn drop(&mut self) {
         unsafe {
-            for cf in self.cfs.values() {
+            for cf in self.cfs.read().unwrap().values() {
                 ffi::rocksdb_column_family_handle_destroy(cf.inner);
             }
             ffi::rocksdb_close(self.inner);
@@ -1432,7 +1434,7 @@ fn snapshot_test() {
 
         let snap = db.snapshot();
         let r: Result<Option<DBVector>, Error> = snap.get(b"k1");
-        assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
+        assert_eq!(r.unwrap().unwrap().to_utf8().unwrap(), "v1111");
 
         let p = db.put(b"k2", b"v2222");
         assert!(p.is_ok());

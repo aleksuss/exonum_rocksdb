@@ -36,7 +36,7 @@ pub fn to_cpath<P: AsRef<Path>>(path: P) -> Result<CString, Error> {
 
 pub fn get_cf_names<P: AsRef<Path>>(path: P) -> Result<Vec<String>, Error> {
     let opts = Options::default();
-    let cpath = to_cpath(path).unwrap();
+    let cpath = to_cpath(path)?;
     let result: Vec<String>;
 
     unsafe {

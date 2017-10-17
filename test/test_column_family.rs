@@ -26,7 +26,7 @@ pub fn test_column_family() {
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.set_merge_operator("test operator", test_provided_merge);
-        let mut db = DB::open(&opts, path).unwrap();
+        let db = DB::open(&opts, path).unwrap();
         let opts = Options::default();
         match db.create_cf("cf1", &opts) {
             Ok(_) => println!("cf1 created successfully"),
