@@ -66,7 +66,7 @@ fn test_transaction_iterator() {
     assert!(txn.put(b"key2", b"value2").is_ok());
     assert!(txn.put(b"key3", b"value3").is_ok());
     assert!(txn.put(b"key4", b"value4").is_ok());
-    let iter = txn.iterator();
+    let iter = txn.iterator(IteratorMode::Start);
     assert!(iter.valid());
     assert_eq!(iter.count(), 4);
     // assert!(iter.next().is_some());
@@ -86,7 +86,7 @@ fn test_transaction_snapshot() {
     let snapshot = db.snapshot();
     let txn = db.transaction_begin(&w_opts, &txn_opts);
     assert!(txn.put(b"key3", b"value3").is_ok());
-    let iter = txn.iterator();
+    let iter = txn.iterator(IteratorMode::Start);
     assert!(iter.valid());
     assert_eq!(iter.count(), 3);
     assert!(txn.commit().is_ok());

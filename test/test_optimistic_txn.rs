@@ -49,7 +49,7 @@ fn test_optimistictransactiondb_transaction() {
     }
     {
         let txn = db.transaction_begin(&w_opts, &txn_opts);
-        assert_eq!(txn.iterator().count(), 3);
+        assert_eq!(txn.iterator(IteratorMode::Start).count(), 3);
         assert!(txn.get(b"c").unwrap().is_some());
         assert!(txn.delete(b"c").is_ok());
         assert!(txn.get(b"c").unwrap().is_none());
@@ -87,8 +87,8 @@ fn test_optimistictransactiondb_transaction_cf() {
     assert!(cf1.is_some());
     assert!(cf2.is_some());
 
-    assert_eq!(txn.iterator_cf(cf1.unwrap()).unwrap().count(), 1);
-    assert_eq!(txn.iterator_cf(cf2.unwrap()).unwrap().count(), 0);
+    assert_eq!(txn.iterator_cf(cf1.unwrap(), IteratorMode::Start).unwrap().count(), 1);
+    assert_eq!(txn.iterator_cf(cf2.unwrap(), IteratorMode::Start).unwrap().count(), 0);
 
     assert!(txn.get_cf(cf1.unwrap(), b"a").unwrap().is_some());
     assert!(txn.get_cf(cf2.unwrap(), b"a").unwrap().is_none());

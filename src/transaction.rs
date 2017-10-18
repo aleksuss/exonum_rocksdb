@@ -215,24 +215,25 @@ impl Transaction {
         Ok(())
     }
 
-    pub fn iterator(&self) -> DBIterator {
-        self.iterator_opt(&self.read_opts)
+    pub fn iterator(&self, mode: IteratorMode) -> DBIterator {
+        self.iterator_opt(&self.read_opts, mode)
     }
 
-    pub fn iterator_opt(&self, opts: &ReadOptions) -> DBIterator {
-        DBIterator::new_txn(self, opts, IteratorMode::Start)
+    pub fn iterator_opt(&self, opts: &ReadOptions, mode: IteratorMode) -> DBIterator {
+        DBIterator::new_txn(self, opts, mode)
     }
 
-    pub fn iterator_cf(&self, cf_handler: ColumnFamily) -> Result<DBIterator, Error> {
-        DBIterator::new_txn_cf(self, cf_handler, &self.read_opts, IteratorMode::Start)
+    pub fn iterator_cf(&self, cf_handler: ColumnFamily, mode: IteratorMode) -> Result<DBIterator, Error> {
+        DBIterator::new_txn_cf(self, cf_handler, &self.read_opts, mode)
     }
 
     pub fn iterator_opt_cf(
         &self,
         cf_handler: ColumnFamily,
         opts: &ReadOptions,
+        mode: IteratorMode
     ) -> Result<DBIterator, Error> {
-        DBIterator::new_txn_cf(self, cf_handler, opts, IteratorMode::Start)
+        DBIterator::new_txn_cf(self, cf_handler, opts, mode)
     }
 }
 

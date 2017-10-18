@@ -15,7 +15,7 @@
 extern crate exonum_rocksdb;
 
 use exonum_rocksdb::{TransactionDB, Options, WriteOptions, TransactionOptions,
-                     TransactionDBOptions};
+                     TransactionDBOptions, IteratorMode};
 use std::thread;
 use std::time::Duration;
 
@@ -63,7 +63,7 @@ fn main() {
 
         {
             let txn2 = db.transaction_begin(&w_opts, &txn_opts);
-            for (key, value) in txn2.iterator() {
+            for (key, value) in txn2.iterator(IteratorMode::Start) {
                 println!(
                     "key: {} value: {}",
                     String::from_utf8(key.to_vec()).unwrap(),
@@ -84,7 +84,7 @@ fn main() {
         }
 
         let txn = db.transaction_begin(&w_opts, &txn_opts);
-        let iter = txn.iterator();
+        let iter = txn.iterator(IteratorMode::Start);
 
         for (key, value) in iter {
             println!(
