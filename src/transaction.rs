@@ -56,11 +56,14 @@ impl Transaction {
         txn_options: &OptimisticTransactionOptions,
     ) -> Self {
         Transaction {
-            inner: unsafe { ffi::rocksdb_optimistictransaction_begin(
-                db.inner,
-                options.inner,
-                txn_options.inner,
-                null_mut()) },
+            inner: unsafe {
+                ffi::rocksdb_optimistictransaction_begin(
+                    db.inner,
+                    options.inner,
+                    txn_options.inner,
+                    null_mut()
+                )
+            },
             read_opts: ReadOptions::default(),
         }
     }
@@ -223,7 +226,11 @@ impl Transaction {
         DBIterator::new_txn(self, opts, mode)
     }
 
-    pub fn iterator_cf(&self, cf_handler: ColumnFamily, mode: IteratorMode) -> Result<DBIterator, Error> {
+    pub fn iterator_cf(
+        &self,
+        cf_handler: ColumnFamily,
+        mode: IteratorMode,
+    ) -> Result<DBIterator, Error> {
         DBIterator::new_txn_cf(self, cf_handler, &self.read_opts, mode)
     }
 
@@ -231,7 +238,7 @@ impl Transaction {
         &self,
         cf_handler: ColumnFamily,
         opts: &ReadOptions,
-        mode: IteratorMode
+        mode: IteratorMode,
     ) -> Result<DBIterator, Error> {
         DBIterator::new_txn_cf(self, cf_handler, opts, mode)
     }

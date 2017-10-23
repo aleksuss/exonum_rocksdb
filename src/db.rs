@@ -14,11 +14,12 @@
 //
 
 use {DB, Error, Options, WriteOptions, ColumnFamily};
-use transaction_db::Transaction;
-use utils;
+
+use ffi;
+use ffi_util::opt_bytes_to_ptr;
+use libc::{c_char, c_int, c_uchar, c_void, size_t};
 
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
 use std::ffi::CString;
 use std::fmt;
 use std::ops::Deref;
@@ -26,10 +27,9 @@ use std::path::Path;
 use std::ptr;
 use std::slice;
 use std::str;
-
-use ffi;
-use ffi_util::opt_bytes_to_ptr;
-use libc::{c_char, c_int, c_uchar, c_void, size_t};
+use std::sync::{Arc, RwLock};
+use transaction_db::Transaction;
+use utils;
 
 pub fn new_bloom_filter(bits: c_int) -> *mut ffi::rocksdb_filterpolicy_t {
     unsafe { ffi::rocksdb_filterpolicy_create_bloom(bits) }
@@ -756,7 +756,10 @@ impl DB {
             }
 
             for (n, h) in cfs_v.iter().zip(cfhandles) {
-                cf_map.write().unwrap().insert(n.to_string(), ColumnFamily { inner: h });
+                cf_map.write().unwrap().insert(
+                    n.to_string(),
+                    ColumnFamily { inner: h },
+                );
             }
         }
 
@@ -882,7 +885,7 @@ impl DB {
     }
 
     pub fn create_cf(&self, name: &str, opts: &Options) -> Result<ColumnFamily, Error> {
-        let cname= utils::to_cpath(Path::new(name))?;
+        let cname = utils::to_cpath(Path::new(name))?;
         let cf = unsafe {
             let cf_handler = ffi_try!(ffi::rocksdb_create_column_family(
                 self.inner,

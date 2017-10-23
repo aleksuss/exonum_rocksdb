@@ -22,16 +22,16 @@ use Options;
 use ReadOptions;
 use WriteOptions;
 use db::Inner;
-use transaction::Transaction;
-use utils;
+
+use ffi;
+use libc::{c_uchar, c_char, size_t, c_int, c_void};
 
 use std::collections::BTreeMap;
 use std::ffi::CString;
 use std::path::Path;
 use std::ptr;
-
-use ffi;
-use libc::{c_uchar, c_char, size_t, c_int, c_void};
+use transaction::Transaction;
+use utils;
 
 unsafe impl Send for OptimisticTransactionDB {}
 unsafe impl Sync for OptimisticTransactionDB {}
